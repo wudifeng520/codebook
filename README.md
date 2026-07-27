@@ -38,4 +38,24 @@ npm.cmd run dist
 
 打包配置会直接复用 `node_modules/electron/dist` 中已安装的 Electron 运行时，不会在每次打包时重新下载 Windows ZIP。首次在新电脑构建时仍需先执行一次 `npm.cmd install`。
 
+## 一键发布 GitHub Release
+
+发布新版本（例如 `v1.2.0`）：
+
+```powershell
+npm.cmd run release -- 1.2.0
+```
+
+脚本会自动更新版本、同步 README、测试打包、提交并推送 `main`、创建 Release，再上传安装版和便携版。正式执行前可以预演：
+
+```powershell
+npm.cmd run release -- 1.2.0 -DryRun
+```
+
+若 Release 已创建但附件上传中断，可以断点续传：
+
+```powershell
+npm.cmd run release -- 1.2.0 -Resume
+```
+
 当前交付的 EXE 未使用商业代码签名证书，因此 Windows SmartScreen 可能在首次运行时提示“未知发布者”。这不影响本地加密功能；正式公开分发时建议使用可信代码签名证书。
