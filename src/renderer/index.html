@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>本地密码本</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="authView" class="auth-view">
+    <div class="auth-meta">
+      <strong>本地密码本</strong>
+      <span id="authAppMeta">版本信息加载中…</span>
+    </div>
+    <section class="auth-card">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4V6Zm3 9.73V18h-2v-2.27a2 2 0 1 1 2 0Z"/></svg>
+      </div>
+      <h1>本地密码本</h1>
+      <p id="authSubtitle">你的密码，只属于这台电脑</p>
+      <form id="authForm" autocomplete="off">
+        <label for="masterPassword">主密码</label>
+        <div class="password-wrap">
+          <input id="masterPassword" type="password" minlength="8" maxlength="256" required autofocus placeholder="输入主密码">
+          <button type="button" class="icon-btn input-icon" id="toggleMaster" title="显示或隐藏密码">显示</button>
+        </div>
+        <div id="confirmGroup" class="hidden">
+          <label for="confirmPassword">确认主密码</label>
+          <input id="confirmPassword" type="password" minlength="8" maxlength="256" placeholder="再次输入主密码">
+        </div>
+        <p id="authHint" class="hint hidden">主密码无法找回，请务必牢记。至少 8 个字符。</p>
+        <p id="authError" class="error" role="alert"></p>
+        <button id="authSubmit" class="primary-btn wide" type="submit">解锁保险库</button>
+      </form>
+      <div class="local-note"><span>●</span> 完全离线 · AES-256 加密储存</div>
+    </section>
+  </main>
+
+  <main id="appView" class="app-view hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="mini-mark">◆</div>
+        <div class="brand-copy">
+          <span>本地密码本</span>
+          <small id="appMeta">版本信息加载中…</small>
+        </div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-filter="all"><span>▦</span>全部项目<em id="allCount">0</em></button>
+        <button class="nav-item" data-filter="favorite"><span>★</span>收藏<em id="favoriteCount">0</em></button>
+      </nav>
+      <section class="folder-section">
+        <header><span>文件夹</span><button id="addFolderBtn" title="新建文件夹" aria-label="新建文件夹">＋</button></header>
+        <div id="folderList" class="folder-list"></div>
+      </section>
+      <div class="sidebar-bottom">
+        <button id="backupBtn" class="nav-item"><span>⇩</span>备份保险库</button>
+        <button id="lockBtn" class="nav-item"><span>◎</span>立即锁定</button>
+        <p>闲置 5 分钟自动锁定</p>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div>
+          <h2 id="viewTitle">全部项目</h2>
+          <p id="viewSubtitle">安全管理你的账号和密码</p>
+        </div>
+        <button id="newBtn" class="primary-btn"><span>＋</span> 新建项目</button>
+      </header>
+      <div class="content">
+        <div class="search-wrap">
+          <span>⌕</span>
+          <input id="searchInput" type="search" placeholder="搜索名称、账号或网址…" autocomplete="off">
+          <kbd>Ctrl K</kbd>
+        </div>
+        <div id="entryList" class="entry-list"></div>
+        <section id="emptyState" class="empty-state hidden">
+          <div>◇</div>
+          <h3>还没有保存任何密码</h3>
+          <p>创建你的第一个项目，所有信息都会加密保存在本机。</p>
+          <button class="secondary-btn" id="emptyNewBtn">＋ 创建第一个项目</button>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div id="editorBackdrop" class="backdrop hidden">
+    <section class="editor" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+      <header>
+        <div><h2 id="editorTitle">新建项目</h2><p>账号信息将加密保存在本机</p></div>
+        <button id="closeEditor" class="icon-btn" aria-label="关闭">×</button>
+      </header>
+      <form id="entryForm" autocomplete="off">
+        <input id="entryId" type="hidden">
+        <label for="title">名称 <b>*</b></label>
+        <input id="title" maxlength="120" required placeholder="例如：工作邮箱">
+        <label for="folderId">所属文件夹</label>
+        <select id="folderId"><option value="">未分类</option></select>
+        <label for="username">账号 / 邮箱</label>
+        <div class="field-action">
+          <input id="username" maxlength="300" placeholder="name@example.com">
+          <button type="button" id="copyUsername" class="text-action hidden">复制</button>
+        </div>
+        <div class="label-row"><label for="password">密码</label><button type="button" id="generateBtn">生成强密码</button></div>
+        <div class="password-wrap field-action">
+          <input id="password" type="password" maxlength="2000" placeholder="输入或生成密码">
+          <button type="button" id="togglePassword" class="text-action">显示</button>
+          <button type="button" id="copyPassword" class="text-action hidden">复制</button>
+        </div>
+        <div id="strengthRow" class="strength-row hidden"><div><i></i><i></i><i></i><i></i></div><span id="strengthText">密码强度</span></div>
+        <label for="website">网址</label>
+        <div class="field-action">
+          <input id="website" maxlength="1000" placeholder="https://example.com">
+          <button type="button" id="openWebsite" class="text-action hidden">打开</button>
+        </div>
+        <label for="notes">备注</label>
+        <textarea id="notes" maxlength="5000" rows="3" placeholder="可选备注…"></textarea>
+        <label class="favorite-check"><input id="favorite" type="checkbox"><span>★</span> 添加到收藏</label>
+        <p id="entryError" class="error" role="alert"></p>
+        <footer>
+          <button type="button" id="deleteBtn" class="danger-btn hidden">删除</button>
+          <div class="footer-spacer"></div>
+          <button type="button" id="cancelBtn" class="secondary-btn">取消</button>
+          <button type="submit" class="primary-btn">保存项目</button>
+        </footer>
+      </form>
+    </section>
+  </div>
+
+  <div id="confirmBackdrop" class="backdrop hidden">
+    <section class="confirm-box" role="alertdialog" aria-modal="true">
+      <h3>删除这个项目？</h3><p>删除后无法恢复，建议先确认已有保险库备份。</p>
+      <div><button id="confirmCancel" class="secondary-btn">取消</button><button id="confirmDelete" class="danger-solid">确认删除</button></div>
+    </section>
+  </div>
+
+  <div id="folderBackdrop" class="backdrop hidden">
+    <section class="folder-box" role="dialog" aria-modal="true" aria-labelledby="folderDialogTitle">
+      <h3 id="folderDialogTitle">新建文件夹</h3>
+      <p>可按项目、团队、用途或账号类型进行分类。</p>
+      <form id="folderForm" autocomplete="off">
+        <input id="folderEditId" type="hidden">
+        <label for="folderName">文件夹名称</label>
+        <input id="folderName" maxlength="60" required placeholder="例如：工作项目">
+        <p id="folderError" class="error" role="alert"></p>
+        <footer>
+          <button type="button" id="deleteFolderBtn" class="danger-btn hidden">删除文件夹</button>
+          <div class="footer-spacer"></div>
+          <button type="button" id="folderCancelBtn" class="secondary-btn">取消</button>
+          <button type="submit" class="primary-btn">保存</button>
+        </footer>
+      </form>
+    </section>
+  </div>
+
+  <div id="folderConfirmBackdrop" class="backdrop folder-confirm-backdrop hidden">
+    <section class="confirm-box" role="alertdialog" aria-modal="true">
+      <h3>删除这个文件夹？</h3><p>文件夹中的密码不会被删除，它们会自动移至“未分类”。</p>
+      <div><button id="folderConfirmCancel" class="secondary-btn">取消</button><button id="folderConfirmDelete" class="danger-solid">确认删除</button></div>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>

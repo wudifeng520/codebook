@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Local encrypted vaults and temporary files
+*.pvault
+*.pvault.*
+*.tmp
+
+# Logs and test output
+*.log
+npm-debug.log*
+coverage/
+
+# Local environment and editor settings
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
