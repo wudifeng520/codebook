@@ -13,6 +13,18 @@ function deriveKey(password, salt) {
   return crypto.scryptSync(password, salt, KEY_LENGTH, SCRYPT_OPTIONS);
 }
 
+function verifyKey(password, salt, expectedKey) {
+  if (typeof password !== 'string' || password.length < 8) return false;
+  const candidateKey = deriveKey(password, salt);
+  try {
+    return Buffer.isBuffer(expectedKey) &&
+      candidateKey.length === expectedKey.length &&
+      crypto.timingSafeEqual(candidateKey, expectedKey);
+  } finally {
+    candidateKey.fill(0);
+  }
+}
+
 function encryptVault(data, password, existingSalt) {
   const salt = existingSalt || crypto.randomBytes(16);
   const key = deriveKey(password, salt);
@@ -40,6 +52,26 @@ function encryptWithKey(data, key, salt) {
     tag: authTag.toString('base64'),
     data: ciphertext.toString('base64')
   };
+}
+
+function preparePasswordChange(data, currentPassword, newPassword, currentKey, currentSalt) {
+  if (!verifyKey(currentPassword, currentSalt, currentKey)) {
+    throw new Error('当前主密码错误');
+  }
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    throw new Error('新主密码至少需要 8 个字符');
+  }
+  if (newPassword.length > 256) throw new Error('新主密码不能超过 256 个字符');
+  if (newPassword === currentPassword) throw new Error('新主密码不能与当前主密码相同');
+
+  const salt = crypto.randomBytes(16);
+  const key = deriveKey(newPassword, salt);
+  try {
+    return { payload: encryptWithKey(data, key, salt), key, salt };
+  } catch (error) {
+    key.fill(0);
+    throw error;
+  }
 }
 
 function decryptVault(payload, password) {
@@ -86,6 +118,7 @@ module.exports = {
   deriveKey,
   encryptVault,
   encryptWithKey,
+  preparePasswordChange,
   decryptVault,
   decryptWithKey,
   validatePayload

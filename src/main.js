@@ -5,12 +5,13 @@ const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const crypto = require('node:crypto');
-const { deriveKey, encryptWithKey, decryptWithKey, validatePayload } = require('./vault-crypto');
+const { deriveKey, encryptWithKey, preparePasswordChange, decryptWithKey, validatePayload } = require('./vault-crypto');
 const { createEmptyVault, normalizeVault, removeFolder } = require('./vault-model');
 const { author: APP_AUTHOR } = require('../package.json');
 
 const AUTO_LOCK_DELAY_MS = 5 * 60 * 1000;
 const CLIPBOARD_CLEAR_DELAY_MS = 30_000;
+const AUTO_LAUNCH_NAME = '本地密码本';
 
 let mainWindow;
 let vault = null;
@@ -20,6 +21,29 @@ let autoLockTimer = null;
 let clipboardToken = 0;
 
 const vaultPath = () => path.join(app.getPath('userData'), 'vault.pvault');
+
+function loginItemOptions() {
+  return {
+    path: process.env.PORTABLE_EXECUTABLE_FILE || process.execPath,
+    args: app.isPackaged ? [] : [app.getAppPath()]
+  };
+}
+
+function loginItemMatches(item, options) {
+  if (!item || item.name !== AUTO_LAUNCH_NAME) return false;
+  if (String(item.path).toLocaleLowerCase('en-US') !== options.path.toLocaleLowerCase('en-US')) return false;
+  if (!Array.isArray(item.args) || item.args.length !== options.args.length) return false;
+  return item.args.every((argument, index) =>
+    String(argument).toLocaleLowerCase('en-US') === options.args[index].toLocaleLowerCase('en-US'));
+}
+
+function isAutoLaunchEnabled() {
+  if (process.platform !== 'win32') return false;
+  const options = loginItemOptions();
+  const settings = app.getLoginItemSettings(options);
+  const item = settings.launchItems.find((launchItem) => loginItemMatches(launchItem, options));
+  return Boolean(item?.enabled);
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -72,15 +96,18 @@ function lockVault() {
   vault = null;
 }
 
-async function writeVault() {
-  requireUnlocked();
-  vault.updatedAt = new Date().toISOString();
-  const encrypted = encryptWithKey(vault, vaultKey, vaultSalt);
+async function writeEncryptedVault(encrypted) {
   const target = vaultPath();
   const temp = `${target}.tmp`;
   await fsp.mkdir(path.dirname(target), { recursive: true });
   await fsp.writeFile(temp, JSON.stringify(encrypted), { encoding: 'utf8', mode: 0o600 });
   await fsp.rename(temp, target);
+}
+
+async function writeVault() {
+  requireUnlocked();
+  vault.updatedAt = new Date().toISOString();
+  await writeEncryptedVault(encryptWithKey(vault, vaultKey, vaultSalt));
 }
 
 function safeHandler(channel, handler) {
@@ -128,6 +155,32 @@ function registerIpc() {
     vault = normalizeVault(decrypted);
     vaultKey = key;
     vaultSalt = salt;
+    resetAutoLock();
+    return true;
+  });
+
+  safeHandler('vault:changePassword', async (input = {}) => {
+    requireUnlocked();
+    const previousUpdatedAt = vault.updatedAt;
+    vault.updatedAt = new Date().toISOString();
+    let change;
+    try {
+      change = preparePasswordChange(
+        vault,
+        input.currentPassword,
+        input.newPassword,
+        vaultKey,
+        vaultSalt
+      );
+      await writeEncryptedVault(change.payload);
+    } catch (error) {
+      vault.updatedAt = previousUpdatedAt;
+      if (change?.key) change.key.fill(0);
+      throw error;
+    }
+    vaultKey.fill(0);
+    vaultKey = change.key;
+    vaultSalt = change.salt;
     resetAutoLock();
     return true;
   });
@@ -240,6 +293,24 @@ function registerIpc() {
     if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('只能打开 HTTP 或 HTTPS 地址');
     await shell.openExternal(parsed.toString());
     return true;
+  });
+
+  safeHandler('app:getAutoLaunch', async () => {
+    if (process.platform !== 'win32') throw new Error('开机自动启动仅支持 Windows');
+    return isAutoLaunchEnabled();
+  });
+
+  safeHandler('app:setAutoLaunch', async (enabled) => {
+    requireUnlocked();
+    if (process.platform !== 'win32') throw new Error('开机自动启动仅支持 Windows');
+    if (typeof enabled !== 'boolean') throw new Error('开机自动启动设置无效');
+    const options = loginItemOptions();
+    const settings = { ...options, name: AUTO_LAUNCH_NAME, openAtLogin: enabled };
+    if (enabled) settings.enabled = true;
+    app.setLoginItemSettings(settings);
+    const actual = isAutoLaunchEnabled();
+    if (actual !== enabled) throw new Error('Windows 未能更新开机自动启动设置');
+    return actual;
   });
 }
 

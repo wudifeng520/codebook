@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('vaultApi', {
   status: () => call('vault:status'),
   create: (password) => call('vault:create', password),
   unlock: (password) => call('vault:unlock', password),
+  changePassword: (passwords) => call('vault:changePassword', passwords),
   lock: () => call('vault:lock'),
   touch: () => call('vault:touch'),
   list: () => call('vault:list'),
@@ -24,5 +25,7 @@ contextBridge.exposeInMainWorld('vaultApi', {
   copy: (id, field) => call('vault:copy', { id, field }),
   export: () => call('vault:export'),
   openWebsite: (url) => call('vault:openWebsite', url),
+  getAutoLaunch: () => call('app:getAutoLaunch'),
+  setAutoLaunch: (enabled) => call('app:setAutoLaunch', enabled),
   onLocked: (callback) => ipcRenderer.on('vault:locked', callback)
 });

@@ -60,6 +60,7 @@ async function showApp() {
 
 async function lock() {
   closeEditor();
+  closeSettings();
   await window.vaultApi.lock();
   showLockScreen();
 }
@@ -368,6 +369,80 @@ async function deleteCurrentFolder() {
   } catch (error) { toast(error.message); }
 }
 
+function resetSettingsForm() {
+  $('changePasswordForm').reset();
+  $('changePasswordError').textContent = '';
+  $('autoLaunchError').textContent = '';
+}
+
+async function openSettings() {
+  resetSettingsForm();
+  $('settingsBackdrop').classList.remove('hidden');
+  $('autoLaunch').disabled = true;
+  try {
+    $('autoLaunch').checked = await window.vaultApi.getAutoLaunch();
+  } catch (error) {
+    $('autoLaunchError').textContent = error.message;
+  } finally {
+    $('autoLaunch').disabled = false;
+  }
+  setTimeout(() => $('currentMasterPassword').focus(), 0);
+}
+
+function closeSettings() {
+  $('settingsBackdrop').classList.add('hidden');
+  resetSettingsForm();
+}
+
+async function changeMasterPassword(event) {
+  event.preventDefault();
+  const currentPassword = $('currentMasterPassword').value;
+  const newPassword = $('newMasterPassword').value;
+  const confirmPassword = $('confirmNewMasterPassword').value;
+  const submit = $('changePasswordForm').querySelector('[type="submit"]');
+  $('changePasswordError').textContent = '';
+  if (newPassword.length < 8) {
+    $('changePasswordError').textContent = '新主密码至少需要 8 个字符';
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    $('changePasswordError').textContent = '两次输入的新主密码不一致';
+    return;
+  }
+  if (newPassword === currentPassword) {
+    $('changePasswordError').textContent = '新主密码不能与当前主密码相同';
+    return;
+  }
+  setBusy(submit, true, '正在修改…');
+  try {
+    await window.vaultApi.changePassword({ currentPassword, newPassword });
+    closeSettings();
+    toast('主密码已修改');
+  } catch (error) {
+    $('changePasswordError').textContent = error.message;
+    $('currentMasterPassword').select();
+  } finally {
+    setBusy(submit, false);
+  }
+}
+
+async function updateAutoLaunch() {
+  const checkbox = $('autoLaunch');
+  const enabled = checkbox.checked;
+  checkbox.disabled = true;
+  $('autoLaunchError').textContent = '';
+  try {
+    checkbox.checked = await window.vaultApi.setAutoLaunch(enabled);
+    toast(enabled ? '已开启开机自动启动' : '已关闭开机自动启动');
+  } catch (error) {
+    $('autoLaunchError').textContent = error.message;
+    try { checkbox.checked = await window.vaultApi.getAutoLaunch(); }
+    catch { checkbox.checked = !enabled; }
+  } finally {
+    checkbox.disabled = false;
+  }
+}
+
 $('authForm').addEventListener('submit', submitAuth);
 $('toggleMaster').addEventListener('click', () => { const input = $('masterPassword'); input.type = input.type === 'password' ? 'text' : 'password'; $('toggleMaster').textContent = input.type === 'password' ? '显示' : '隐藏'; });
 $('newBtn').addEventListener('click', () => openEditor());
@@ -390,6 +465,11 @@ $('folderCancelBtn').addEventListener('click', closeFolderEditor);
 $('deleteFolderBtn').addEventListener('click', () => $('folderConfirmBackdrop').classList.remove('hidden'));
 $('folderConfirmCancel').addEventListener('click', () => $('folderConfirmBackdrop').classList.add('hidden'));
 $('folderConfirmDelete').addEventListener('click', deleteCurrentFolder);
+$('settingsBtn').addEventListener('click', openSettings);
+$('closeSettings').addEventListener('click', closeSettings);
+$('settingsCancelBtn').addEventListener('click', closeSettings);
+$('changePasswordForm').addEventListener('submit', changeMasterPassword);
+$('autoLaunch').addEventListener('change', updateAutoLaunch);
 $('lockBtn').addEventListener('click', lock);
 $('backupBtn').addEventListener('click', async () => { try { if (await window.vaultApi.export()) toast('加密保险库已备份'); } catch (error) { toast(error.message); } });
 $('searchInput').addEventListener('input', (e) => { state.query = e.target.value.trim(); renderEntries(); });
@@ -400,6 +480,7 @@ document.addEventListener('keydown', (event) => {
   if (event.ctrlKey && event.key.toLowerCase() === 'k' && !$('appView').classList.contains('hidden')) { event.preventDefault(); $('searchInput').focus(); }
   if (event.key === 'Escape' && !$('folderConfirmBackdrop').classList.contains('hidden')) $('folderConfirmBackdrop').classList.add('hidden');
   else if (event.key === 'Escape' && !$('folderBackdrop').classList.contains('hidden')) closeFolderEditor();
+  else if (event.key === 'Escape' && !$('settingsBackdrop').classList.contains('hidden')) closeSettings();
   else if (event.key === 'Escape' && !$('editorBackdrop').classList.contains('hidden')) closeEditor();
 });
 for (const eventName of ['pointerdown', 'keydown']) {
@@ -409,5 +490,5 @@ for (const eventName of ['pointerdown', 'keydown']) {
     window.vaultApi.touch().catch(() => {});
   }, { passive: true });
 }
-window.vaultApi.onLocked(() => { closeEditor(); closeFolderEditor(); showLockScreen(); toast('长时间未操作，保险库已自动锁定'); });
+window.vaultApi.onLocked(() => { closeEditor(); closeFolderEditor(); closeSettings(); showLockScreen(); toast('长时间未操作，保险库已自动锁定'); });
 initialize().catch((error) => { $('authError').textContent = `启动失败：${error.message}`; });
