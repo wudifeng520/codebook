@@ -1,6 +1,6 @@
 {
   "name": "local-vault",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "完全离线的 Windows 本地加密密码本",
   "main": "src/main.js",
   "author": "Junfeng",
