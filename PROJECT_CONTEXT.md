@@ -6,7 +6,7 @@
 ## 项目概况
 
 - 项目名称：本地密码本（`local-vault`）。
-- 当前版本：`2.0.0`。
+- 当前版本：`2.0.1`。
 - 主要平台：Windows x64。
 - 技术栈：Electron 37、CommonJS JavaScript、原生 HTML/CSS、`node:test`。
 - 产品定位：完全离线的本地加密密码管理器。
@@ -23,28 +23,26 @@
 
 - 当前分支：`main`，跟踪 `origin/main`。
 - 已加入 GitHub Release 发布流程：`package.json` 提供 `release` 命令，`tools/publish.ps1` 负责预演、发布和续传，README 已记录使用方法。
-- `v2.0.0` 已发布为 GitHub 最新正式版：`https://github.com/wudifeng520/codebook/releases/tag/v2.0.0`。
+- `v2.0.1` 已发布为 GitHub 最新正式版：`https://github.com/wudifeng520/codebook/releases/tag/v2.0.1`。
 - 发布脚本已兼容 Windows PowerShell 5.1 下“目标 Release 不存在”的正常检测流程。
 - 设置界面支持验证当前主密码后修改主密码；修改时生成全新随机盐和密钥，保险库格式保持 version 1。
-- 设置界面支持切换 Windows 开机自动启动，默认关闭，启动后仍需输入主密码解锁；便携版使用实际便携程序路径注册登录项。
+- 设置界面支持切换 Windows 开机自动启动，默认关闭，启动后仍需输入主密码解锁；当前使用 Windows Startup 文件夹快捷方式保存完整程序路径，并在切换设置时清理旧版 `Run` 注册表启动项。便携版快捷方式指向实际便携程序路径。
 - 项目根目录已建立 `AGENTS.md` 和 `PROJECT_CONTEXT.md`，分别保存长期规则和持续项目上下文。
 
 ## 最近验证
 
-- `npm.cmd test`：10 项测试通过。
-- JavaScript 语法检查：8 个文件通过。
-- Windows 登录项启用、状态读取和移除检查通过，测试登录项已清理。
-- Electron 使用隔离的临时用户数据目录完成启动和关闭检查。
+- `npm.cmd test`：15 项测试通过。
+- JavaScript 语法检查：10 个文件通过。
+- Windows Startup 快捷方式创建、读取和目标匹配集成检查通过；旧版唯一测试 `Run` 启动项可被清理，测试注册表值和快捷方式均无残留。
 - `npm.cmd run dist`：测试、图标生成、x64 NSIS 安装版和便携版构建通过。
-- 已生成 `本地密码本-安装版-2.0.0-x64.exe` 和 `本地密码本-便携版-2.0.0-x64.exe`，Windows 文件版本均为 `2.0.0`。
-- `dist/win-unpacked/本地密码本.exe` 使用隔离的临时用户数据目录完成启动和关闭检查。
-- GitHub `v2.0.0` 标签指向提交 `694b42e`，Release 为非草稿、非预发布并标记为最新正式版。
+- 已生成 `本地密码本-安装版-2.0.1-x64.exe` 和 `本地密码本-便携版-2.0.1-x64.exe`；打包应用文件版本为 `2.0.1`，产品版本为 `2.0.1.0`。
+- GitHub `v2.0.1` 标签指向提交 `c4e4bf3`，Release 为非草稿、非预发布并标记为最新正式版。
 - Release 安装版和便携版附件状态均为 `uploaded`，远程文件大小及 SHA-256 与本地构建产物一致。
 - 验证日期：2026-07-30。
 
 ## 当前待办
 
-- 发布后人工检查设置弹窗、实际修改主密码后重新锁定与解锁，以及安装版和便携版的开机启动行为。
+- 人工检查实际修改主密码后重新锁定与解锁，以及安装版和便携版在真实 Windows 登录后的自动启动行为。
 
 ## 更新规则
 
