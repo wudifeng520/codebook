@@ -41,8 +41,14 @@ function Invoke-External([string]$FilePath, [string[]]$Arguments) {
 }
 
 function Test-ReleaseExists([string]$ReleaseTag) {
-  & $script:GhPath release view $ReleaseTag --repo $Repository *> $null
-  return $LASTEXITCODE -eq 0
+  $PreviousErrorActionPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = 'Continue'
+    & $script:GhPath release view $ReleaseTag --repo $Repository *> $null
+    return $LASTEXITCODE -eq 0
+  } finally {
+    $ErrorActionPreference = $PreviousErrorActionPreference
+  }
 }
 
 Set-Location $ProjectRoot
