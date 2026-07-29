@@ -7,11 +7,17 @@ const fsp = require('node:fs/promises');
 const crypto = require('node:crypto');
 const { deriveKey, encryptWithKey, preparePasswordChange, decryptWithKey, validatePayload } = require('./vault-crypto');
 const { createEmptyVault, normalizeVault, removeFolder } = require('./vault-model');
+const {
+  AUTO_LAUNCH_SHORTCUT_NAME,
+  createAutoLaunchTarget,
+  createShortcutDetails,
+  shortcutMatches,
+  createLegacyRemovalSettings
+} = require('./auto-launch');
 const { author: APP_AUTHOR } = require('../package.json');
 
 const AUTO_LOCK_DELAY_MS = 5 * 60 * 1000;
 const CLIPBOARD_CLEAR_DELAY_MS = 30_000;
-const AUTO_LAUNCH_NAME = '本地密码本';
 
 let mainWindow;
 let vault = null;
@@ -22,27 +28,36 @@ let clipboardToken = 0;
 
 const vaultPath = () => path.join(app.getPath('userData'), 'vault.pvault');
 
-function loginItemOptions() {
-  return {
-    path: process.env.PORTABLE_EXECUTABLE_FILE || process.execPath,
-    args: app.isPackaged ? [] : [app.getAppPath()]
-  };
+function autoLaunchTarget() {
+  return createAutoLaunchTarget({
+    isPackaged: app.isPackaged,
+    appPath: app.getAppPath(),
+    executablePath: process.execPath,
+    portableExecutablePath: process.env.PORTABLE_EXECUTABLE_FILE
+  });
 }
 
-function loginItemMatches(item, options) {
-  if (!item || item.name !== AUTO_LAUNCH_NAME) return false;
-  if (String(item.path).toLocaleLowerCase('en-US') !== options.path.toLocaleLowerCase('en-US')) return false;
-  if (!Array.isArray(item.args) || item.args.length !== options.args.length) return false;
-  return item.args.every((argument, index) =>
-    String(argument).toLocaleLowerCase('en-US') === options.args[index].toLocaleLowerCase('en-US'));
+function autoLaunchShortcutPath() {
+  return path.join(
+    app.getPath('appData'),
+    'Microsoft',
+    'Windows',
+    'Start Menu',
+    'Programs',
+    'Startup',
+    AUTO_LAUNCH_SHORTCUT_NAME
+  );
 }
 
 function isAutoLaunchEnabled() {
   if (process.platform !== 'win32') return false;
-  const options = loginItemOptions();
-  const settings = app.getLoginItemSettings(options);
-  const item = settings.launchItems.find((launchItem) => loginItemMatches(launchItem, options));
-  return Boolean(item?.enabled);
+  const shortcutPath = autoLaunchShortcutPath();
+  if (!fs.existsSync(shortcutPath)) return false;
+  try {
+    return shortcutMatches(shell.readShortcutLink(shortcutPath), autoLaunchTarget());
+  } catch {
+    return false;
+  }
 }
 
 function createWindow() {
@@ -304,10 +319,17 @@ function registerIpc() {
     requireUnlocked();
     if (process.platform !== 'win32') throw new Error('开机自动启动仅支持 Windows');
     if (typeof enabled !== 'boolean') throw new Error('开机自动启动设置无效');
-    const options = loginItemOptions();
-    const settings = { ...options, name: AUTO_LAUNCH_NAME, openAtLogin: enabled };
-    if (enabled) settings.enabled = true;
-    app.setLoginItemSettings(settings);
+    const target = autoLaunchTarget();
+    app.setLoginItemSettings(createLegacyRemovalSettings(target));
+    const shortcutPath = autoLaunchShortcutPath();
+    if (enabled) {
+      await fsp.mkdir(path.dirname(shortcutPath), { recursive: true });
+      const operation = fs.existsSync(shortcutPath) ? 'replace' : 'create';
+      const written = shell.writeShortcutLink(shortcutPath, operation, createShortcutDetails(target));
+      if (!written) throw new Error('Windows 未能创建开机启动快捷方式');
+    } else if (fs.existsSync(shortcutPath)) {
+      await fsp.unlink(shortcutPath);
+    }
     const actual = isAutoLaunchEnabled();
     if (actual !== enabled) throw new Error('Windows 未能更新开机自动启动设置');
     return actual;
